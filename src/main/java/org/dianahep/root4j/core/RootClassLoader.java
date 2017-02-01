@@ -61,9 +61,11 @@ public class RootClassLoader extends ClassLoader
          {
             try
             {
+                String cname = name.substring(name.lastIndexOf(".") + 1);
                 FileOutputStream out = new FileOutputStream(jasminPath+"/"+name + ".j");
                 new JasminVisitor(jc, out).disassemble();
                 out.close();
+                jc.dump(jasminPath+"/"+cname+".class");
             }
             catch (IOException x) {}
          }

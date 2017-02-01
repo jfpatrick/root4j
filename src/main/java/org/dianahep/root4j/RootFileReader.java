@@ -1,11 +1,26 @@
 package org.dianahep.root4j;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Proxy;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.file.FileSystem;
+import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.security.auth.login.Configuration;
+
+import org.dianahep.mdproxy.MDProxyHandler;
 import org.dianahep.root4j.core.DefaultClassFactory;
-import org.dianahep.root4j.core.RootHDFSInputStream;
 import org.dianahep.root4j.core.FastInputStream;
 import org.dianahep.root4j.core.FileClassFactory;
 import org.dianahep.root4j.core.RootClassFactory;
 import org.dianahep.root4j.core.RootDaemonInputStream;
+import org.dianahep.root4j.core.RootHDFSInputStream;
 import org.dianahep.root4j.core.RootInput;
 import org.dianahep.root4j.core.RootRandomAccessFile;
 import org.dianahep.root4j.daemon.DaemonInputStream;
@@ -13,22 +28,9 @@ import org.dianahep.root4j.interfaces.TDatime;
 import org.dianahep.root4j.interfaces.TDirectory;
 import org.dianahep.root4j.interfaces.TFile;
 import org.dianahep.root4j.interfaces.TKey;
-import org.dianahep.root4j.interfaces.TStreamerInfo;
 import org.dianahep.root4j.interfaces.TStreamerElement;
+import org.dianahep.root4j.interfaces.TStreamerInfo;
 import org.dianahep.root4j.interfaces.TStreamerSTL;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.List;
-import java.util.Iterator;
-import java.util.Map;
-
-// hadoop hdfs
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 
 /**
@@ -38,8 +40,12 @@ import org.apache.hadoop.fs.Path;
  */
 public class RootFileReader implements TFile
 {
+   private static boolean testMatlab = true;
+   private static boolean testedMatlab = false;
+   private static boolean inMatlab = false;
    private static boolean welcome = true;
    private static boolean debug = System.getProperty("debugRoot") != null;
+   private static boolean jpype = System.getProperty("jpype") != null;
    private ClassLoader classLoader;
    private java.util.Date fDatimeC;
    private java.util.Date fDatimeM;
@@ -175,11 +181,14 @@ public class RootFileReader implements TFile
        init(hdfsInput, null);
        */
 
+	   /* Comment out for FNAL use
        Configuration conf = new Configuration();
        Path hPath = new Path(path);
        FileSystem fs = hPath.getFileSystem(conf);
        RootHDFSInputStream hdfsInput = new RootHDFSInputStream(fs.open(hPath), this);
        init(hdfsInput, null);
+       */
+	   init(new File(path), null); // Restore old code replaced by above for FNAL
    }
 
    private void init(File file, RootFileReader shared) throws IOException
@@ -203,6 +212,18 @@ public class RootFileReader implements TFile
       {
          this.in = in;
          if (!welcome) welcome();
+         if (!testedMatlab && testMatlab) {
+        	 try {
+        		 Class.forName("com.mathworks.matlab.api.menus.MenuBuilder");
+        		 inMatlab = true;
+        	 } catch (ClassNotFoundException e) {
+        		 inMatlab = false;
+        	 }
+        	 if (jpype) {
+        		 inMatlab = true;
+        	 }
+        	 testedMatlab = true;
+         }
          
          /**
           * 1. Initiales the Default Factory.
@@ -507,9 +528,26 @@ public class RootFileReader implements TFile
     */
    public Object get(String name) throws IOException, RootClassNotFound
    {
-      TKey key = getKey(name);
-      RootObject o = key.getObject();
-      return o;
+	   TKey key = getKey(name);
+	   RootObject o = key.getObject();
+	   String interfaceClass = o.getClass().getName();
+
+	   // Wrap instances of internally generated proxy classes
+
+	   if (inMatlab && interfaceClass.startsWith("org.dianahep.root4j.proxy")) {
+		   interfaceClass = "org.dianahep.root4j.interfaces." + interfaceClass.substring(interfaceClass.lastIndexOf(".") + 1);
+
+		   Object ret = null;
+		   try {
+			   ret = Proxy.newProxyInstance(java.lang.ClassLoader.getSystemClassLoader(), new Class[] { Class.forName(interfaceClass)}, new MDProxyHandler(o));
+		   } catch (ClassNotFoundException e) {
+			   System.out.println("Class " + interfaceClass + " not found: " + e.getMessage());
+			   return o; // return original object, won't be available in Matlab though...
+		   }
+		   return ret;  // return wrapped object
+	   } else {
+		   return o;    // return original object. Which is fine unless in Matlab
+	   }
    }
 
    public int nKeys()
