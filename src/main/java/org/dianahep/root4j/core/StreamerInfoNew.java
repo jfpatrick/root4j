@@ -186,8 +186,13 @@ public class StreamerInfoNew extends StreamerInfo implements org.apache.bcel.Con
          // Note: typeName may just refer to a Enumeration, in which case it is 
          // not defined in the root file. This decission should be based on a combination
          // of varType and varClass.
-         if (varType == 3) varClass = factory.create("Int_t");
-         else varClass = factory.create(typeName);
+         if (varType == 3) {
+        	 varClass = factory.create("Int_t");
+         } else if (varType == 12) {			// Add for TH1 classes by J. Patrick
+        	 varClass = factory.create("UShort_t");
+         } else {
+        	 varClass = factory.create(typeName);
+         }
 
          if (element instanceof TStreamerBasicPointer)
          {
