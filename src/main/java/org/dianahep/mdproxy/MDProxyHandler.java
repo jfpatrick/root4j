@@ -39,7 +39,7 @@ java.lang.reflect.InvocationHandler
 		if (retClass.startsWith("org.dianahep.root4j.proxy")) {
 			String interfaceClass = "org.dianahep.root4j.interfaces." + retClass.substring(retClass.lastIndexOf(".") + 1);
 			try {
-				ret = Proxy.newProxyInstance(java.lang.ClassLoader.getSystemClassLoader(), new Class[] { Class.forName(interfaceClass)}, new MDProxyHandler(ret));
+				ret = Proxy.newProxyInstance(Class.forName(interfaceClass).getClassLoader(), new Class[] { Class.forName(interfaceClass)}, new MDProxyHandler(ret));
 				System.out.println("Returning class!");
 			} catch (ClassNotFoundException e) {
 				System.out.println("Class " + interfaceClass + " not found: " + e.getMessage());

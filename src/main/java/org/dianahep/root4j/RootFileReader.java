@@ -539,7 +539,7 @@ public class RootFileReader implements TFile
 
 		   Object ret = null;
 		   try {
-			   ret = Proxy.newProxyInstance(java.lang.ClassLoader.getSystemClassLoader(), new Class[] { Class.forName(interfaceClass)}, new MDProxyHandler(o));
+			   ret = Proxy.newProxyInstance(Class.forName(interfaceClass).getClassLoader(), new Class[] { Class.forName(interfaceClass)}, new MDProxyHandler(o));
 		   } catch (ClassNotFoundException e) {
 			   System.out.println("Class " + interfaceClass + " not found: " + e.getMessage());
 			   return o; // return original object, won't be available in Matlab though...
